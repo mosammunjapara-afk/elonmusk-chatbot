@@ -1,0 +1,165 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Commander Elon v6.5</title>
+<style>
+/* ---------- BODY ---------- */
+body {
+    margin: 0;
+    font-family: Arial, sans-serif;
+    height: 100vh;
+    background: url('https://cdn.dribbble.com/userupload/36762621/file/original-d0253bf56167a33c2de4d99aa0b1eb6a.jpg?resize=752x&vertical=center') center/cover no-repeat;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+}
+
+/* ---------- ELON CORNER ---------- */
+#elonCorner {
+    width: 100px; height: 100px;
+    border-radius: 50%;
+    position: fixed; bottom: 20px; right: 20px;
+    cursor: pointer;
+    background: url('https://qz.com/cdn-cgi/image/width=640,height=360,fit=cover,quality=85,format=auto/https://assets.qz.com/media/GettyImages-2246882475.jpg') center/cover no-repeat;
+    z-index: 10;
+    transition: transform 0.5s, box-shadow 0.5s;
+}
+#elonCorner:hover { transform: scale(1.1); box-shadow: 0 0 15px #0ea5e9; }
+
+/* ---------- CHATBOX ---------- */
+.chatbox {
+    width: 450px;
+    max-height: 70vh;
+    background: rgba(0,0,0,0.85);
+    border-radius: 16px;
+    display: none;
+    flex-direction: column;
+    box-shadow: 0 0 25px #00f2fe;
+    position: fixed;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    z-index: 30;
+}
+.header { padding: 12px; display: flex; align-items: center; background: #0ea5e9; border-top-left-radius: 16px; border-top-right-radius: 16px; }
+.header img { width: 50px; height: 50px; border-radius: 50%; margin-right: 10px; }
+.messages { flex: 1; padding: 15px; overflow-y: auto; }
+.msg { margin-bottom: 10px; padding: 10px 14px; border-radius: 12px; max-width: 75%; display: flex; align-items: center; }
+.user { background: #1e293b; color: #fff; margin-left: auto; }
+.bot { background: #0ea5e9; color: black; margin-right: auto; }
+.bot img { width: 40px; height: 40px; border-radius: 50%; margin-right: 10px; }
+.input { display: flex; }
+input { flex: 1; padding: 14px; border: none; background: #020617; color: white; }
+button { background: #0ea5e9; border: none; padding: 0 16px; cursor: pointer; font-weight: bold; }
+audio { display: none; }
+</style>
+</head>
+<body>
+
+<div id="elonCorner"></div>
+
+<div class="chatbox" id="chatbox">
+    <div class="header">
+        <img src="https://i.insider.com/6736327bfa0140cdd5638024?width=700" alt="Commander Elon">
+        <span>🤖 Commander Elon</span>
+    </div>
+    <div class="messages" id="chat">
+        <div class="msg bot">
+            <img src="https://i.ibb.co/vmG9JdB/elon-avatar.png" alt="Elon">
+            Welcome! Ask anything to Elon.
+        </div>
+    </div>
+    <div class="input">
+        <input id="cmd" placeholder="Type your question..." onkeypress="if(event.key==='Enter')send()">
+        <button onclick="send()">Send</button>
+    </div>
+</div>
+
+<audio id="voice"></audio>
+<audio id="alarmSound">
+    <source src="https://actions.google.com/sounds/v1/alarms/alarm_clock.ogg" type="audio/ogg">
+</audio>
+
+<script>
+// ---------- OPEN CHAT ----------
+const elonCorner = document.getElementById("elonCorner");
+const chatbox = document.getElementById("chatbox");
+elonCorner.addEventListener("click", () => {
+    chatbox.style.display = "flex";
+    elonCorner.style.display = "none";
+});
+
+// ---------- SEND MESSAGE ----------
+async function send() {
+    const input = document.getElementById("cmd");
+    const chat = document.getElementById("chat");
+    const voice = document.getElementById("voice");
+    const text = input.value.trim();
+    if (!text) return;
+
+    chat.innerHTML += `<div class="msg user">${text}</div>`;
+    chat.scrollTop = chat.scrollHeight;
+    input.value = "";
+
+    const res = await fetch("/chat", {
+        method: "POST",
+        headers: {"Content-Type":"application/json"},
+        body: JSON.stringify({message:text})
+    });
+    const data = await res.json();
+
+    chat.innerHTML += `<div class="msg bot">
+        <img src="https://i.ibb.co/vmG9JdB/elon-avatar.png" alt="Elon">
+        ${data.reply}
+    </div>`;
+    chat.scrollTop = chat.scrollHeight;
+    voice.src = data.voice;
+    voice.play();
+
+    // Open new tab if new_tab URL exists
+    if(data.new_tab) window.open(data.new_tab, "_blank");
+}
+
+// ---------- REMINDERS ----------
+setInterval(async () => {
+    const r = await fetch("/reminders");
+    const d = await r.json();
+    if(d.text){
+        const chat = document.getElementById("chat");
+        chat.innerHTML += `<div class="msg bot">
+            <img src="https://i.ibb.co/vmG9JdB/elon-avatar.png" alt="Elon">
+            ${d.text}
+        </div>`;
+        chat.scrollTop = chat.scrollHeight;
+        const voice = document.getElementById("voice");
+        voice.src = d.voice;
+        voice.play();
+        const alarmSound = document.getElementById("alarmSound");
+        alarmSound.play();
+        setTimeout(()=>alarmSound.pause(), 3000); // stop after 3 sec
+    }
+}, 3000);
+
+// ---------- ALARMS ----------
+setInterval(async () => {
+    const r = await fetch("/alarms");
+    const d = await r.json();
+    if(d.text){
+        const chat = document.getElementById("chat");
+        chat.innerHTML += `<div class="msg bot">
+            <img src="https://i.ibb.co/vmG9JdB/elon-avatar.png" alt="Elon">
+            ${d.text}
+        </div>`;
+        chat.scrollTop = chat.scrollHeight;
+        const voice = document.getElementById("voice");
+        voice.src = d.voice;
+        voice.play();
+        const alarmSound = document.getElementById("alarmSound");
+        alarmSound.play();
+        setTimeout(()=>alarmSound.pause(), 5000); // stop after 5 sec
+    }
+}, 2000);
+</script>
+</body>
+</html>
